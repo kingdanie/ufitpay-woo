@@ -12,7 +12,7 @@ class WC_Gateway_UfitPay extends WC_Payment_Gateway
         $this->icon               = 'https://ufitpay.com/logo.png?v=100'; // URL of the icon that will be displayed on checkout page near your gateway name
         $this->has_fields         = false;
         $this->method_title       = __('UfitPay', 'ufitpay');
-        $this->method_description = __('UfitPay payment gateway for WooCommerce', 'ufitpay');
+        $this->method_description = __('Pay with Airtime via the UfitPay WooCommerce Payment Gateway', 'ufitpay');
 
         // Load the settings.
         $this->init_form_fields();
@@ -59,6 +59,13 @@ class WC_Gateway_UfitPay extends WC_Payment_Gateway
                 'title'       => __('API Key', 'ufitpay'),
                 'type'        => 'text',
                 'description' => __('Enter your UfitPay API key.', 'ufitpay'),
+            ),
+            'callback_url' => array(
+                'title'       => __('Callback URL', 'ufitpay'),
+                'type'        => 'text',
+                'description' => __('This is the URL you should use for the callback in your payment gateway settings.', 'ufitpay'),
+                'default'     => esc_url(home_url('/wc-api/wc_ufitpay_gateway')),
+                'desc_tip'    => true,
             ),
         );
     }
@@ -178,124 +185,97 @@ class WC_Gateway_UfitPay extends WC_Payment_Gateway
 
 
     /**
-     * Verify Paystack payment.
+     * Verify Ufitpay payment.
      */
     public function verify_ufitpay_transaction()
     {
 
-        // if (isset($_REQUEST['paystack_txnref'])) {
-        //     $paystack_txn_ref = sanitize_text_field($_REQUEST['paystack_txnref']);
-        // } elseif (isset($_REQUEST['reference'])) {
-        //     $paystack_txn_ref = sanitize_text_field($_REQUEST['reference']);
-        // } else {
-        //     $paystack_txn_ref = false;
-        // }
+        $response = sanitize_text_field($_POST['response']);
 
-        // @ob_clean();
+        //Convert json response from the rtequest into an object
+        $response_object = json_decode($response, true);
 
-        // if ($paystack_txn_ref) {
+        // Check if the response is valid
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            wp_redirect(wc_get_page_permalink('cart'));
+            exit;
+        }
 
-        //     $paystack_response = $this->get_paystack_transaction($paystack_txn_ref);
+        //Get the status of the API request
+        $request_status = $response_object['status'];
 
-        //     if (false !== $paystack_response) {
+        //Check if request was successful
+        if ($request_status == "success") {
+            $response_data = $response_object['data'];
+            $transaction_status = $response_data['payment_status'];
+            if ($transaction_status == "completed") {
+                $returned_token = $response_data['token'];
+                $reference = $response_data['reference'];
 
-        //         if ('success' == $paystack_response->data->status) {
 
-        //             $order_details = explode('_', $paystack_response->data->reference);
-        //             $order_id      = (int) $order_details[0];
-        //             $order         = wc_get_order($order_id);
+                $order_details = explode('_', $reference);
+                $order_id      = (int) $order_details[0];
+                $order         = wc_get_order($order_id);
 
-        //             if (in_array($order->get_status(), array('processing', 'completed', 'on-hold'))) {
+                if (in_array($order->get_status(), ['processing', 'completed', 'on-hold'])) {
 
-        //                 wp_redirect($this->get_return_url($order));
+                    wp_redirect($this->get_return_url($order));
 
-        //                 exit;
-        //             }
+                    exit;
+                }
 
-        //             $order_total      = $order->get_total();
-        //             $order_currency   = $order->get_currency();
-        //             $currency_symbol  = get_woocommerce_currency_symbol($order_currency);
-        //             $amount_paid      = $paystack_response->data->amount / 100;
-        //             $paystack_ref     = $paystack_response->data->reference;
-        //             $payment_currency = strtoupper($paystack_response->data->currency);
-        //             $gateway_symbol   = get_woocommerce_currency_symbol($payment_currency);
+                $order_total      = $order->get_total();
+                $amount_paid      = $response_data->amount / 100;
+                $currency_symbol  = $order->get_currency();
 
-        //             // check if the amount paid is equal to the order amount.
-        //             if ($amount_paid < absint($order_total)) {
+                // check if the amount paid is equal to the order amount.
+                if ($amount_paid < absint($order_total)) {
 
-        //                 $order->update_status('on-hold', '');
+                    $order->update_status('on-hold', '');
 
-        //                 $order->add_meta_data('_transaction_id', $paystack_ref, true);
+                    $order->add_meta_data('_transaction_id', $reference, true);
 
-        //                 $notice      = sprintf(__('Thank you for shopping with us.%1$sYour payment transaction was successful, but the amount paid is not the same as the total order amount.%2$sYour order is currently on hold.%3$sKindly contact us for more information regarding your order and payment status.', 'woo-paystack'), '<br />', '<br />', '<br />');
-        //                 $notice_type = 'notice';
+                    $notice      = sprintf(__('Thank you for shopping with us.%1$sYour payment transaction was successful, but the amount paid is not the same as the total order amount.%2$sYour order is currently on hold.%3$sKindly contact us for more information regarding your order and payment status.', 'ufitpay'), '<br />', '<br />', '<br />');
+                    $notice_type = 'notice';
 
-        //                 // Add Customer Order Note
-        //                 $order->add_order_note($notice, 1);
+                    // Add Customer Order Note
+                    $order->add_order_note($notice, 1);
 
-        //                 // Add Admin Order Note
-        //                 $admin_order_note = sprintf(__('<strong>Look into this order</strong>%1$sThis order is currently on hold.%2$sReason: Amount paid is less than the total order amount.%3$sAmount Paid was <strong>%4$s (%5$s)</strong> while the total order amount is <strong>%6$s (%7$s)</strong>%8$s<strong>Paystack Transaction Reference:</strong> %9$s', 'woo-paystack'), '<br />', '<br />', '<br />', $currency_symbol, $amount_paid, $currency_symbol, $order_total, '<br />', $paystack_ref);
-        //                 $order->add_order_note($admin_order_note);
+                    // Add Admin Order Note
+                    $admin_order_note = sprintf(__('<strong>Look into this order</strong>%1$sThis order is currently on hold.%2$sReason: Amount paid is less than the total order amount.%3$sAmount Paid was <strong>%4$s (%5$s)</strong> while the total order amount is <strong>%6$s (%7$s)</strong>%8$s<strong>Ufitpay Transaction Reference:</strong> %9$s', 'ufitpay'), '<br />', '<br />', '<br />', $currency_symbol, $amount_paid, $currency_symbol, $order_total, '<br />', $reference);
+                    $order->add_order_note($admin_order_note);
 
-        //                 function_exists('wc_reduce_stock_levels') ? wc_reduce_stock_levels($order_id) : $order->reduce_order_stock();
+                    function_exists('wc_reduce_stock_levels') ? wc_reduce_stock_levels($order_id) : $order->reduce_order_stock();
 
-        //                 wc_add_notice($notice, $notice_type);
-        //             } else {
+                    wc_add_notice($notice, $notice_type);
+                } else {
 
-        //                 if ($payment_currency !== $order_currency) {
+                    $order->payment_complete($reference);
+                    $order->add_order_note(sprintf(__('(Transaction Reference: %s) Successful using Ufipay with Airtime', 'ufitpay'), $reference));
+                    $order->update_status('completed');
+                }
 
-        //                     $order->update_status('on-hold', '');
+                $order->save();
+                WC()->cart->empty_cart();
+            } else {
 
-        //                     $order->update_meta_data('_transaction_id', $paystack_ref);
+                //this is the error message from the API request
+                $error = $response_object['message'];
+                $order_details = explode('_', $response_object['data']['reference']);
 
-        //                     $notice      = sprintf(__('Thank you for shopping with us.%1$sYour payment was successful, but the payment currency is different from the order currency.%2$sYour order is currently on-hold.%3$sKindly contact us for more information regarding your order and payment status.', 'woo-paystack'), '<br />', '<br />', '<br />');
-        //                     $notice_type = 'notice';
+                $order_id = (int) $order_details[0];
 
-        //                     // Add Customer Order Note
-        //                     $order->add_order_note($notice, 1);
+                $order = wc_get_order($order_id);
 
-        //                     // Add Admin Order Note
-        //                     $admin_order_note = sprintf(__('<strong>Look into this order</strong>%1$sThis order is currently on hold.%2$sReason: Order currency is different from the payment currency.%3$sOrder Currency is <strong>%4$s (%5$s)</strong> while the payment currency is <strong>%6$s (%7$s)</strong>%8$s<strong>Paystack Transaction Reference:</strong> %9$s', 'woo-paystack'), '<br />', '<br />', '<br />', $order_currency, $currency_symbol, $payment_currency, $gateway_symbol, '<br />', $paystack_ref);
-        //                     $order->add_order_note($admin_order_note);
+                $order->update_status('failed', __('Ufipay Declined Payment. Reason:' . $error, 'ufitpay'));
+            }
 
-        //                     function_exists('wc_reduce_stock_levels') ? wc_reduce_stock_levels($order_id) : $order->reduce_order_stock();
+            wp_redirect($this->get_return_url($order));
+            exit;
+        }
 
-        //                     wc_add_notice($notice, $notice_type);
-        //                 } else {
-
-        //                     $order->payment_complete($paystack_ref);
-        //                     $order->add_order_note(sprintf(__('Payment via Paystack successful (Transaction Reference: %s)', 'woo-paystack'), $paystack_ref));
-
-        //                     if ($this->is_autocomplete_order_enabled($order)) {
-        //                         $order->update_status('completed');
-        //                     }
-        //                 }
-        //             }
-
-        //             $order->save();
-
-        //             $this->save_card_details($paystack_response, $order->get_user_id(), $order_id);
-
-        //             WC()->cart->empty_cart();
-        //         } else {
-
-        //             $order_details = explode('_', $_REQUEST['paystack_txnref']);
-
-        //             $order_id = (int) $order_details[0];
-
-        //             $order = wc_get_order($order_id);
-
-        //             $order->update_status('failed', __('Payment was declined by Paystack.', 'woo-paystack'));
-        //         }
-        //     }
-
-        //     wp_redirect($this->get_return_url($order));
-
-        //     exit;
-        // }
 
         wp_redirect(wc_get_page_permalink('cart'));
-
         exit;
     }
 }
