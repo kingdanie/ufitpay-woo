@@ -1,21 +1,12 @@
 === Plugin Name ===
-
 Contributors:  daniedmola
-
 Donate link: https://github.com/kingdanie
-
 Tags: Woocommerce Payment Gateway, Pay with Airtime
-
 Requires at least: 3.0.1
-
 Tested up to: 3.4
-
 Stable tag: 4.3
-
 License: GPLv2 or later
-
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
-
 
 == Description ==
 **Pay-with-UfitPay** offers a simple online payment solution that enables UfitPay vendors to accept payments from customers directly on their website. It provides both card and mobile wallet payment options.
