@@ -23,7 +23,7 @@ jQuery(function($) {
         const data = {
             resource: "mobileairtime",
             payer_name: ufitpay_params.name,
-            payer_email: 'felixayo2@gmail.com',
+            payer_email: ufitpay_params.email,
             description: ufitpay_params.description || "Payment for order " + orderId,
             amount: ufitpay_params.amount,
             reference: ufitpay_params.orderId,
