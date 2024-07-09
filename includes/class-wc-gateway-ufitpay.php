@@ -113,7 +113,7 @@ class WC_Gateway_UfitPay extends WC_Payment_Gateway
             $the_order_key = method_exists($order, 'get_order_key') ? $order->get_order_key() : $order->order_key;
 
             $billing_phone = method_exists($order, 'get_billing_phone') ? $order->get_billing_phone() : $order->billing_phone;
-            $callback_url =  WC()->api_request_url('wc_payinvert_gateway');
+            $callback_url =  WC()->api_request_url('wc_ufitpay_gateway');
 
             if ($the_order_id == $order_id && $the_order_key == $order_key) {
 
@@ -209,7 +209,7 @@ class WC_Gateway_UfitPay extends WC_Payment_Gateway
             $response_data = $response_object['data'];
             $transaction_status = $response_data['payment_status'];
             if ($transaction_status == "completed") {
-                $returned_token = $response_data['token'];
+                // $returned_token = $response_data['token'];
                 $reference = $response_data['reference'];
 
 

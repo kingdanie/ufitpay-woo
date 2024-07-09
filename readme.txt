@@ -54,4 +54,7 @@ For any issues or questions, please contact our dedicated integration support te
 ### 1.0.0
 - Initial release of Pay-with-UfitPay plugin.
 
+### 1.0.1
+- Fixed Payment Gateway Bug.
+
 ---

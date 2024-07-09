@@ -2,7 +2,7 @@
 /*
 Plugin Name: UfitPay Payment Gateway
 Description: Adds a UfitPay payment gateway to WooCommerce.
-Version: 1.0
+Version: 1.0.1
 Author: Danie D'mola
 */
 
